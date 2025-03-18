@@ -36,5 +36,5 @@ python align-training-dataset.py --input_dir /path/to/raw_data --output_dir /pat
 
 To train the model:
 ```bash
-python train.py --data_dir /path/to/aligned_data --batch_size 32 --epochs 100 --feature_transform --arc_margin 0.5 --arc_scale 30.0
+python train.py --data_dir /path/to/aligned_data --batch_size 32 --epochs 100 --arc_margin 0.5 --arc_scale 30.0
 ```

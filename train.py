@@ -265,8 +265,8 @@ def evaluate(model, metric_fc, dataloader, device, criterion, args):
             target = data['label'].to(device)
             
             _, trans, trans_feat, embeddings = model(points)
-            
-            output = metric_fc(embeddings)
+
+            output = metric_fc(embeddings, target)  # Add target parameter            
             
             cls_loss = criterion(output, target)
             
