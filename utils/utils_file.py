@@ -5,19 +5,33 @@ from scipy.spatial import Delaunay
 
 
 def read_ply(filename):
-    point_cloud = o3d.io.read_point_cloud(filename)
+    vertices = []
+    colors = []
+    triangles = []
     
-    vertices = np.asarray(point_cloud.points)
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        
+    reading_vertices = True
     
-    colors = np.asarray(point_cloud.colors)
+    for line in lines:
+        values = line.strip().split()
+        
+        if not values:
+            continue
+            
+        if values[0] == '3':
+            reading_vertices = False
+            triangles.append([int(values[1]), int(values[2]), int(values[3])])
+        elif reading_vertices and len(values) == 7:
+            x, y, z = float(values[0]), float(values[1]), float(values[2])
+            r, g, b = int(values[3])/255.0, int(values[4])/255.0, int(values[5])/255.0
+            
+            vertices.append([x, y, z])
+            colors.append([r, g, b])
+    
+    return np.array(vertices), np.array(triangles), np.array(colors)
 
-    if len(colors) == 0:
-        colors = np.ones_like(vertices) * 0.5
-
-    tri = Delaunay(vertices[:, :2])
-    triangles = tri.simplices
-    
-    return vertices, triangles, colors
 
 def read_wrl(filename):
     with open(filename, "r", encoding="utf-8") as file:

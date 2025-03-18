@@ -23,9 +23,6 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
     try:
         vertices, triangles, colors = read_ply(input_ply_path)
 
-        tri = Delaunay(vertices[:, :2])
-        triangles = tri.simplices
-
         img_2d, depth_map, intrinsic, extrinsic = render_mesh_to_image(vertices, triangles, colors, img_size=(1024, 1024))
         
         if debug:
@@ -58,7 +55,7 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
         if debug:
             show_mesh(vertices, triangles, keypoints_3d)
         
-        vertices_aligned = align_3d_face(vertices, keypoints_3d)
+        # vertices_aligned = align_3d_face(vertices, keypoints_3d)
         
         vertices_cropped, mask = crop_sphere(vertices, keypoints_3d[2], radius=90)
         
