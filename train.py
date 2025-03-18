@@ -86,7 +86,12 @@ def train(args):
     writer = SummaryWriter(log_dir=exp_dir)
     
     # Set device
-    device = torch.device("cuda:0" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    device = torch.device(
+        "cuda:0" if torch.cuda.is_available() and not args.no_cuda else
+        "mps" if torch.backends.mps.is_available() and not args.no_mps else
+        "cpu"
+    )
+    
     print(f"Using device: {device}")
     
     # Get dataloaders
@@ -296,6 +301,8 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
     parser.add_argument('--use_adam', action='store_true', help='Use Adam optimizer (default: SGD)')
     parser.add_argument('--no_cuda', action='store_true', help='Disable CUDA')
+    parser.add_argument('--no_mps', action='store_true', help='Disable MPS')
+
     parser.add_argument('--feature_transform', action='store_true', help='Use feature transform')
     parser.add_argument('--embedding_size', type=int, default=512, help='Embedding size')
     
