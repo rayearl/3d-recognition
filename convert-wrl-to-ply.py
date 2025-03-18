@@ -43,8 +43,8 @@ def convert_wrl_to_ply(input_path, output_path, verbose=False):
         # Create output directory if it doesn't exist
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # Save as PLY with colors
-        ms.save_current_mesh(output_path, save_vertex_color=True, save_face_color=True)
+        # Save as PLY with colors - IMPORTANT: use binary=False to create ASCII PLY files
+        ms.save_current_mesh(output_path, save_vertex_color=True, save_face_color=True, binary=False)
         
         if verbose:
             print(f"  Saved mesh to {output_path}")
