@@ -1,1 +1,15 @@
 .DS_Store
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+logs/
+runs/
+
+*.bak
+*.swp
+*.log
+
+venv/
+env/
