@@ -12,7 +12,7 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
     try:
         vertices, triangles, colors = read_ply(input_ply_path)
         
-        img_2d, depth_map, intrinsic, extrinsic = render_mesh_to_image(vertices, triangles, colors)
+        img_2d, depth_map, intrinsic, extrinsic = render_mesh_to_image(vertices, triangles, colors, img_size=(1024, 1024))
         
         if debug:
             os.makedirs('runs', exist_ok=True)
@@ -144,7 +144,7 @@ def main():
     
     # Initialize face detector
     face_detector = RetinaFace(args.detector)
-    face_detector.det_thresh = 0.3
+    face_detector.det_thresh = 0.2
     
     # Process the entire dataset
     process_dataset(args.input, args.output, face_detector, args.verbose)

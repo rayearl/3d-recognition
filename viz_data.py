@@ -60,7 +60,7 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
         
         vertices_aligned = align_3d_face(vertices, keypoints_3d)
         
-        vertices_cropped, mask = crop_sphere(vertices, keypoints_3d[2], radius=0.9)
+        vertices_cropped, mask = crop_sphere(vertices, keypoints_3d[2], radius=90)
         
         old_to_new = np.cumsum(mask) - 1
         
@@ -100,7 +100,7 @@ def main():
     face_detector = RetinaFace("weights/det_500m.onnx")
     face_detector.det_thresh = 0.3
     
-    input_ply = r"sample_output_aligned/102/instance_00.ply"
+    input_ply = r"sample-data/101/instance_00.ply"
     output_ply = os.path.join("runs", 'processed_face.ply')
     
     processed_mesh = process_face(input_ply, output_ply, face_detector, debug=True)
