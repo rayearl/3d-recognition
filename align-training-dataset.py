@@ -88,9 +88,11 @@ def process_dataset(input_root, output_root, face_detector, verbose=False):
     # Count total files
     total_files = 0
     for person_id in os.listdir(input_root):
+        if person_id.startswith('.'):
+            continue
         person_dir = os.path.join(input_root, person_id)
         if os.path.isdir(person_dir):
-            ply_files = [f for f in os.listdir(person_dir) if f.endswith('.ply')]
+            ply_files = [f for f in os.listdir(person_dir) if f.endswith('.ply') and not f.startswith('.')]
             total_files += len(ply_files)
     
     # Process each file
@@ -100,6 +102,8 @@ def process_dataset(input_root, output_root, face_detector, verbose=False):
     pbar = tqdm(total=total_files, desc="Processing faces")
     
     for person_id in os.listdir(input_root):
+        if person_id.startswith('.'):
+            continue
         person_dir = os.path.join(input_root, person_id)
         if os.path.isdir(person_dir):
             # Create output directory for this person
@@ -108,6 +112,8 @@ def process_dataset(input_root, output_root, face_detector, verbose=False):
             
             # Process each PLY file
             for ply_file in os.listdir(person_dir):
+                if ply_file.startswith('.'):
+                    continue
                 if ply_file.endswith('.ply'):
                     input_path = os.path.join(person_dir, ply_file)
                     output_path = os.path.join(output_person_dir, ply_file)
