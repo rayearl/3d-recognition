@@ -98,9 +98,9 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
 
 def main():
     face_detector = RetinaFace("weights/det_500m.onnx")
-    face_detector.det_thresh = 0.6
+    face_detector.det_thresh = 0.3
     
-    input_ply = r"D:\Projects\01.appliedrecog\sample_output\cuong\0000000.ply"
+    input_ply = r"sample_output_aligned/102/instance_00.ply"
     output_ply = os.path.join("runs", 'processed_face.ply')
     
     processed_mesh = process_face(input_ply, output_ply, face_detector, debug=True)
