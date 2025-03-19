@@ -2,7 +2,7 @@ import re
 import numpy as np
 import open3d as o3d
 from scipy.spatial import Delaunay
-
+from matplotlib import cm
 
 def read_ply(filename):
     vertices = []
@@ -50,7 +50,19 @@ def read_wrl(filename):
         indices = [int(i) for i in indices if i.strip().isdigit()]
         triangles = [indices[i:i+3] for i in range(0, len(indices)-2, 3) if -1 not in indices[i:i+3]]
 
-    return np.array(vertices, dtype=np.float64), np.array(triangles)
+    colors = []
+    color_pattern = re.search(r'color\s*\[\s*([\d\.\s,\n]+?)\s*\]', content, re.DOTALL)
+    if color_pattern:
+        color_data = color_pattern.group(1).strip().split(",")
+        colors = [list(map(float, c.split())) for c in color_data if c.strip()]
+    
+    color_index = []
+    color_index_pattern = re.search(r'colorIndex\s*\[(.*?)\]', content, re.DOTALL)
+    if color_index_pattern:
+        indices = color_index_pattern.group(1).strip().replace("\n", " ").split(",")
+        color_index = [int(i) for i in indices if i.strip().isdigit() and i.strip() != "-1"]
+    
+    return np.array(vertices, dtype=np.float64), np.array(triangles), np.array(colors, dtype=np.float64)
 
 
 def sort_vertices_into_grid(vertices, grid_shape):

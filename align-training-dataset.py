@@ -44,9 +44,9 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
         if debug:
             show_mesh(vertices, triangles, keypoints_3d)
         
-        vertices_aligned = align_3d_face(vertices, keypoints_3d)
-        
         vertices_cropped, mask = crop_sphere(vertices, keypoints_3d[2], radius=90)
+        if len(vertices_cropped) < 0:
+            return None
         
         old_to_new = np.cumsum(mask) - 1
         
@@ -70,6 +70,7 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
         
         processed_mesh.compute_vertex_normals()
         
+        print(output_ply_path)
         os.makedirs(os.path.dirname(output_ply_path), exist_ok=True)
         o3d.io.write_triangle_mesh(output_ply_path, processed_mesh)
         

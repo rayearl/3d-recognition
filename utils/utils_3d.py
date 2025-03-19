@@ -22,37 +22,31 @@ def render_mesh_to_image(vertices, triangles, colors=None, img_size=(512, 512)):
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(vertices)
     mesh.triangles = o3d.utility.Vector3iVector(triangles)
-    
+
     if colors is not None:
         mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
     
     mesh.compute_vertex_normals()
-    
+
     vis = o3d.visualization.Visualizer()
     vis.create_window(width=img_size[0], height=img_size[1], visible=False)
     vis.add_geometry(mesh)
-    
-    ctr = vis.get_view_control()
-    ctr.set_front([0, 0, 1])
-    ctr.set_lookat([0, 0, 0])
-    ctr.set_up([0, 1, 0])
-    ctr.set_zoom(0.8)
-    
+
     vis.update_geometry(mesh)
     vis.poll_events()
     vis.update_renderer()
-    
+
     img = np.asarray(vis.capture_screen_float_buffer())
-    
+    vis.destroy_window()
+
+    img = (img * 255).astype(np.uint8)
+
+    ctr = vis.get_view_control()
     cam_params = ctr.convert_to_pinhole_camera_parameters()
     intrinsic = cam_params.intrinsic.intrinsic_matrix
     extrinsic = cam_params.extrinsic
-    
+
     depth_image = np.asarray(vis.capture_depth_float_buffer())
-    
-    vis.destroy_window()
-    
-    img = (img * 255).astype(np.uint8)
     return img, depth_image, intrinsic, extrinsic
 
 
