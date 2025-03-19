@@ -70,7 +70,6 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
         
         processed_mesh.compute_vertex_normals()
         
-        print(output_ply_path)
         os.makedirs(os.path.dirname(output_ply_path), exist_ok=True)
         o3d.io.write_triangle_mesh(output_ply_path, processed_mesh)
         
