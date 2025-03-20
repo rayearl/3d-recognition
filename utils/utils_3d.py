@@ -74,6 +74,7 @@ def unproject_2d_to_3d(landmarks_2d, depth_map, intrinsic, extrinsic):
     return points_3d
 
 def snap_to_mesh_surface(unprojected_points, mesh, intrinsic, extrinsic):
+    mesh = fill_mesh_holes(mesh)
     mesh_ray_tracer = o3d.t.geometry.RaycastingScene()
     mesh_ray_tracer.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
 
@@ -112,3 +113,58 @@ def rotate_180_x(ptc):
                     [0, -1, 0],
                     [0, 0, -1]])
     return np.dot(ptc, R_x.T)
+
+
+def fill_mesh_holes(mesh, hole_size=100, debug=False):
+    mesh.compute_vertex_normals()
+    mesh.compute_triangle_normals()
+    
+    filled_mesh = o3d.geometry.TriangleMesh()
+    filled_mesh.vertices = o3d.utility.Vector3dVector(np.asarray(mesh.vertices))
+    filled_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.triangles))
+    if hasattr(mesh, 'vertex_colors') and mesh.has_vertex_colors():
+        filled_mesh.vertex_colors = o3d.utility.Vector3dVector(np.asarray(mesh.vertex_colors))
+    if hasattr(mesh, 'vertex_normals') and mesh.has_vertex_normals():
+        filled_mesh.vertex_normals = o3d.utility.Vector3dVector(np.asarray(mesh.vertex_normals))
+    
+    try:
+        filled_mesh = filled_mesh.fill_holes(hole_size)
+        if debug:
+            print(f"Attempted to fill holes with size {hole_size}")
+    except Exception as e:
+        if debug:
+            print(f"Error when filling with size {hole_size}: {e}")
+    
+    try:
+        # Create point cloud from mesh
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(np.asarray(filled_mesh.vertices))
+        pcd.normals = o3d.utility.Vector3dVector(np.asarray(filled_mesh.vertex_normals))
+        
+        # Apply Poisson surface reconstruction
+        poisson_mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+            pcd, depth=9, width=0, scale=1.1, linear_fit=False
+        )
+        
+        # Remove triangles with low point density
+        vertices_to_remove = densities < np.quantile(densities, 0.01)
+        poisson_mesh.remove_vertices_by_mask(vertices_to_remove)
+        
+        # Clean and adjust mesh
+        poisson_mesh.compute_vertex_normals()
+        
+        # Check if Poisson mesh is better
+        if len(poisson_mesh.vertices) > 0 and len(poisson_mesh.triangles) > 0:
+            if debug:
+                print(f"Poisson mesh: {len(poisson_mesh.vertices)} vertices, {len(poisson_mesh.triangles)} triangles")
+            filled_mesh = poisson_mesh
+        
+    except Exception as e:
+        if debug:
+            print(f"Error when applying Poisson: {e}")
+    
+    # Clean mesh
+    filled_mesh.compute_vertex_normals()
+    filled_mesh.compute_triangle_normals()
+    
+    return filled_mesh

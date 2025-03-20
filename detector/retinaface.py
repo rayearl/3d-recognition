@@ -7,6 +7,7 @@ import onnxruntime
 import cv2
 import os.path as osp
 
+onnxruntime.set_default_logger_severity(3)
 
 def distance2bbox(points, distance, max_shape=None):
     """Decode distance prediction to bounding box.

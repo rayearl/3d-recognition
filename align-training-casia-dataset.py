@@ -1,17 +1,16 @@
+import os
 import numpy as np
 import open3d as o3d
 import cv2
-import os
-import copy
+from tqdm import tqdm
+import argparse
+from utils.utils_3d import render_mesh_to_image, crop_sphere, unproject_2d_to_3d, snap_to_mesh_surface, align_3d_face
+from detector.retinaface import RetinaFace
 from utils.utils_file import read_ply, show_mesh, crete_mesh
-from utils.utils_3d import render_mesh_to_image, crop_sphere, unproject_2d_to_3d, snap_to_mesh_surface, align_3d_face, filter_points_by_z_distance
 from detector.retinaface import RetinaFace
 from scipy.spatial import Delaunay
-from utils.face2d import calc_error
 from utils.face3d import *
 from mpl_toolkits.mplot3d import Axes3D
-import onnxruntime as ort
-
 
 
 def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
@@ -65,7 +64,8 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
     vertices_aligned, keypoints_3d_aligned = transform_to_new_coordinate(
         vertices_cropped, keypoints_3d, center, axes
     )
-    print(len(vertices_aligned))
+    # if len(vertices_aligned) < 6100:
+    #     return None
     vertices_aligned, keypoints_3d_aligned = rotate_to_eyes_up(
         vertices_aligned, keypoints_3d_aligned
     )
@@ -100,39 +100,81 @@ def process_face(input_ply_path, output_ply_path, face_detector, debug=False):
     processed_mesh.compute_vertex_normals()
     if debug:
         o3d.visualization.draw_geometries([processed_mesh], window_name="Aligned Face")
-    
-    print(output_ply_path)
+        
     os.makedirs(os.path.dirname(output_ply_path), exist_ok=True)
     o3d.io.write_triangle_mesh(output_ply_path, processed_mesh)
     
     return processed_mesh
+
     
+def process_dataset(input_root, output_root, face_detector, verbose=False):
+    """Process the entire dataset"""
+    # Count total files
+    total_files = 0
+    for person_id in os.listdir(input_root):
+        if person_id.startswith('.'):
+            continue
+        person_dir = os.path.join(input_root, person_id)
+        if os.path.isdir(person_dir):
+            ply_files = [f for f in os.listdir(person_dir) if f.endswith('.ply') and not f.startswith('.')]
+            total_files += len(ply_files)
+    
+    # Process each file
+    processed_count = 0
+    failed_count = 0
+    
+    pbar = tqdm(total=total_files, desc="Processing faces")
+    
+    for person_id in os.listdir(input_root):
+        if person_id.startswith('.'):
+            continue
+        person_dir = os.path.join(input_root, person_id)
+        if os.path.isdir(person_dir):
+            # Create output directory for this person
+            output_person_dir = os.path.join(output_root, person_id)
+            os.makedirs(output_person_dir, exist_ok=True)
+            
+            # Process each PLY file
+            for ply_file in os.listdir(person_dir):
+                if ply_file.startswith('.'):
+                    continue
+                if ply_file.endswith('.ply'):
+                    input_path = os.path.join(person_dir, ply_file)
+                    output_path = os.path.join(output_person_dir, ply_file)
+                    try:
+                        success = process_face(input_path, output_path, face_detector, verbose)
+                    
+                        if success:
+                            processed_count += 1
+                        else:
+                            failed_count += 1
+                    except:
+                        pass
+                
+                    pbar.update(1)
+    
+    pbar.close()
+    
+    print(f"Dataset processing complete:")
+    print(f"  - Total files: {total_files}")
+    print(f"  - Successfully processed: {processed_count}")
+    print(f"  - Failed: {failed_count}")
 
 def main():
-    face_detector = RetinaFace("weights/det_500m.onnx")
+    parser = argparse.ArgumentParser(description="Align and crop 3D face dataset")
+    parser.add_argument("--input", type=str, required=True, help="Input dataset root directory")
+    parser.add_argument("--output", type=str, required=True, help="Output directory for processed dataset")
+    parser.add_argument("--detector", type=str, default="weights/det_500m.onnx", help="Path to RetinaFace weights")
+    parser.add_argument("--verbose", action="store_true", help="Print detailed progress")
+    args = parser.parse_args()
+    
+    # Initialize face detector
+    face_detector = RetinaFace(args.detector)
     face_detector.det_thresh = 0.2
     
-    root = r'D:\Projects\01.appliedrecog\3D-Face-PLY-61-90\WRL61-90\061'
-    out = r'D:\Projects\01.appliedrecog\3D-Face-PLY-61-90-Aligned\061'
+    # Process the entire dataset
+    process_dataset(args.input, args.output, face_detector, args.verbose)
 
-    for i in os.listdir(root):
-        if not i.endswith(".ply"):
-            continue
-
-        input_ply = fr"{root}/{i}"
-
-        output_ply = fr"{out}/{i}"
-
-        print(input_ply)
-        try:
-            processed_mesh = process_face(input_ply, output_ply, face_detector, debug=True)
-            
-            if processed_mesh is not None:
-                print("Face processed successfully!")
-            else:
-                print("Face processing failed!")
-        except:
-            pass
-        break
 if __name__ == "__main__":
     main()
+    
