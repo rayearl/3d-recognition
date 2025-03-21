@@ -38,19 +38,21 @@ class FaceDataset(Dataset):
         self.id_to_class = {id: idx for idx, id in enumerate(self.unique_ids)}
         
         # Split into train and test
-        files_train, files_test, ids_train, ids_test = train_test_split(
-            all_files, person_ids, test_size=test_size, random_state=random_state, stratify=person_ids
-        )
-        
-        if train:
-            self.files = files_train
-            self.person_ids = ids_train
+        if test_size > 0:
+            files_train, files_test, ids_train, ids_test = train_test_split(
+                all_files, person_ids, test_size=test_size, random_state=random_state, stratify=person_ids
+            )
+            
+            if train:
+                self.files = files_train
+                self.person_ids = ids_train
+            else:
+                self.files = files_test
+                self.person_ids = ids_test
         else:
-            self.files = files_test
-            self.person_ids = ids_test
+            self.files = all_files
+            self.person_ids = person_ids
 
-        self.files = all_files
-        self.person_ids = person_ids
         print(f"{'Train' if train else 'Test'} dataset has {len(self.files)} samples from {len(set(self.person_ids))} people")
             
     def __len__(self):
@@ -96,7 +98,7 @@ class FaceDataset(Dataset):
             
         return {'points': points, 'label': class_idx, 'person_id': person_id, 'path': ply_path}
 
-def get_dataloaders(root_dir, batch_size=32, num_points=1024, num_workers=4):
+def get_dataloaders(root_dir, batch_size=32, num_points=1024, num_workers=4, only_one=True):
     """
     Create train and test dataloaders
     
@@ -109,6 +111,16 @@ def get_dataloaders(root_dir, batch_size=32, num_points=1024, num_workers=4):
     Returns:
         train_loader, test_loader, num_classes
     """
+    if only_one:
+        dataset = FaceDataset(root_dir, test_size=0, num_points=num_points, train=True)
+        loader = DataLoader(
+            dataset, 
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers
+        )
+        return loader
+
     train_dataset = FaceDataset(root_dir, num_points=num_points, train=True)
     test_dataset = FaceDataset(root_dir, num_points=num_points, train=False)
     

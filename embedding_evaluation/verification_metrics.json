@@ -1,0 +1,20 @@
+{
+    "threshold": 0.6565656565656566,
+    "accuracy": 0.8535353535353535,
+    "precision": 0.8017241379310345,
+    "recall": 0.9393939393939394,
+    "f1": 0.8651162790697674,
+    "far": 0.23232323232323232,
+    "frr": 0.06060606060606061,
+    "same_id_pairs": 99,
+    "diff_id_pairs": 99,
+    "true_positive": 93,
+    "true_negative": 76,
+    "false_positive": 23,
+    "false_negative": 6,
+    "best_threshold": 0.6565656565656566,
+    "best_accuracy": 0.8232323232323232,
+    "eer": 0.20707070707070707,
+    "eer_threshold": 0.7171717171717172,
+    "roc_auc": 0.8477706356494236
+}
