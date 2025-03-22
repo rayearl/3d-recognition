@@ -63,6 +63,7 @@ class FaceDataset(Dataset):
             idx = idx.tolist()
             
         ply_path = self.files[idx]
+        # print(ply_path)
         person_id = self.person_ids[idx]
         class_idx = self.id_to_class[person_id]
         
@@ -98,7 +99,7 @@ class FaceDataset(Dataset):
             
         return {'points': points, 'label': class_idx, 'person_id': person_id, 'path': ply_path}
 
-def get_dataloaders(root_dir, batch_size=32, num_points=1024, num_workers=4, only_one=True):
+def get_dataloaders(root_dir, batch_size=32, num_points=1024, num_workers=4, only_one=False):
     """
     Create train and test dataloaders
     

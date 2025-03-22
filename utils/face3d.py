@@ -2,6 +2,8 @@ import numpy as np
 from scipy.linalg import svd
 import open3d as o3d
 import math
+from scipy.spatial.transform import Rotation
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def calculate_distance(point1, point2):
@@ -145,3 +147,162 @@ def calculate_obb_angles(axes):
     avg_angle = np.mean([min_angle_x, min_angle_y, min_angle_z])
     
     return min_angle_z
+
+
+def rotation_matrix_from_axis_angle(axis, angle):
+    K = np.array([
+        [0, -axis[2], axis[1]],
+        [axis[2], 0, -axis[0]],
+        [-axis[1], axis[0], 0]
+    ])
+    
+    R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
+    
+    return R
+
+
+def compute_rotation_matrix_to_align_vectors(source, target):
+    source = source / np.linalg.norm(source)
+    target = target / np.linalg.norm(target)
+    
+    dot_product = np.dot(source, target)
+    
+    if np.abs(dot_product - 1.0) < 1e-10:
+        return np.eye(3)
+    
+    if np.abs(dot_product + 1.0) < 1e-10:
+        perpendicular = np.array([1.0, 0.0, 0.0])
+        if np.abs(np.dot(perpendicular, source)) > 0.9:
+            perpendicular = np.array([0.0, 1.0, 0.0])
+        
+        perpendicular = perpendicular - np.dot(perpendicular, source) * source
+        perpendicular = perpendicular / np.linalg.norm(perpendicular)
+        
+        R = rotation_matrix_from_axis_angle(perpendicular, np.pi)
+        return R
+    
+    cross_product = np.cross(source, target)
+    cross_product_norm = np.linalg.norm(cross_product)
+    
+    axis = cross_product / cross_product_norm
+    
+    angle = np.arctan2(cross_product_norm, dot_product)
+    
+    R = rotation_matrix_from_axis_angle(axis, angle)
+    
+    return R
+
+
+def rotate_face_to_frontal(vertices, landmarks):
+    left_eye = landmarks[0]
+    right_eye = landmarks[1]
+    nose = landmarks[2]
+    
+    eye_line = right_eye - left_eye
+    eye_center = (left_eye + right_eye) / 2
+    nose_line = nose - eye_center
+    
+    has_mouth = len(landmarks) >= 5
+    if has_mouth:
+        left_mouth = landmarks[3]
+        right_mouth = landmarks[4]
+        mouth_center = (left_mouth + right_mouth) / 2
+    
+    face_normal = np.cross(eye_line, nose_line)
+    face_normal = face_normal / np.linalg.norm(face_normal)
+    
+    if face_normal[2] < 0:
+        face_normal = -face_normal
+    
+    target_normal = np.array([0, 0, 1])
+    
+    center = nose.copy()
+    
+    R1 = compute_rotation_matrix_to_align_vectors(face_normal, target_normal)
+    
+    vertices_step1 = np.zeros_like(vertices)
+    for i in range(len(vertices)):
+        vertices_step1[i] = R1 @ (vertices[i] - center)
+    
+    landmarks_step1 = np.zeros_like(landmarks)
+    for i in range(len(landmarks)):
+        landmarks_step1[i] = R1 @ (landmarks[i] - center)
+
+    eye_line_step1 = landmarks_step1[1] - landmarks_step1[0]
+    
+    eye_line_xy = np.array([eye_line_step1[0], eye_line_step1[1], 0])
+    
+    if np.linalg.norm(eye_line_xy) < 1e-6:
+        R2 = np.eye(3)
+    else:
+        eye_line_xy = eye_line_xy / np.linalg.norm(eye_line_xy)
+        
+        target_eye_line = np.array([1, 0, 0])
+        R2 = compute_rotation_matrix_to_align_vectors(eye_line_xy, target_eye_line)
+    
+    vertices_step2 = np.zeros_like(vertices_step1)
+    for i in range(len(vertices_step1)):
+        vertices_step2[i] = R2 @ vertices_step1[i]
+    
+    landmarks_step2 = np.zeros_like(landmarks_step1)
+    for i in range(len(landmarks_step1)):
+        landmarks_step2[i] = R2 @ landmarks_step1[i]
+    
+    if has_mouth:
+        eye_center_step2 = (landmarks_step2[0] + landmarks_step2[1]) / 2
+        eye_to_mouth = landmarks_step2[4] - eye_center_step2
+        
+        eye_to_mouth_yz = np.array([0, eye_to_mouth[1], eye_to_mouth[2]])
+        
+        if np.linalg.norm(eye_to_mouth_yz) > 1e-6:
+            eye_to_mouth_yz = eye_to_mouth_yz / np.linalg.norm(eye_to_mouth_yz)
+            
+            target_vector = np.array([0, -1, 0])
+            
+            R3 = compute_rotation_matrix_to_align_vectors(eye_to_mouth_yz, target_vector)
+        else:
+            R3 = np.eye(3)
+    else:
+        eye_center_step2 = (landmarks_step2[0] + landmarks_step2[1]) / 2
+        nose_pos = landmarks_step2[2]
+        
+        if nose_pos[1] > eye_center_step2[1]:
+            R3 = np.array([
+                [1, 0, 0],
+                [0, -1, 0],
+                [0, 0, -1]
+            ])
+        else:
+            nose_yz = np.array([0, nose_pos[1] - eye_center_step2[1], nose_pos[2]])
+            if np.linalg.norm(nose_yz) > 1e-6:
+                nose_yz = nose_yz / np.linalg.norm(nose_yz)
+                target_vector = np.array([0, -1, 0])
+                R3 = compute_rotation_matrix_to_align_vectors(nose_yz, target_vector)
+            else:
+                R3 = np.eye(3)
+    
+    vertices_frontal = np.zeros_like(vertices_step2)
+    for i in range(len(vertices_step2)):
+        vertices_frontal[i] = R3 @ vertices_step2[i]
+    
+    landmarks_frontal = np.zeros_like(landmarks_step2)
+    for i in range(len(landmarks_step2)):
+        landmarks_frontal[i] = R3 @ landmarks_step2[i]
+    
+    R_combined = R3 @ R2 @ R1
+    
+    try:
+        r = Rotation.from_matrix(R_combined)
+        angles_rad = r.as_euler('xyz', degrees=False)
+        
+        angles_deg = np.degrees(angles_rad)
+        rotation_angles = {
+            "roll": float(angles_deg[0]),
+            "pitch": float(angles_deg[1]),
+            "yaw": float(angles_deg[2])
+        }
+    except Exception as e:
+        print(f"Error calculating Euler angles: {str(e)}")
+        rotation_angles = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+    
+    return vertices_frontal, landmarks_frontal, rotation_angles

@@ -20,6 +20,7 @@ from io import BytesIO
 # Import our modules
 from dataset.face_dataset import get_dataloaders
 from models.pointnet import PointNetFaceRecognition
+from models.pointnet2 import PointNet2FaceRecognition
 
 def extract_embeddings(model, dataloader, device):
     """
@@ -446,7 +447,10 @@ def evaluate_embeddings(model_path, data_dir, output_dir, batch_size=32, num_poi
     os.makedirs(output_dir, exist_ok=True)
     
     # Set device
+    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
     print(f"Using device: {device}")
     
     # Load checkpoint
@@ -465,8 +469,8 @@ def evaluate_embeddings(model_path, data_dir, output_dir, batch_size=32, num_poi
     embedding_size = 512
     print(f"Using embedding size: {embedding_size}")
     
-    model = PointNetFaceRecognition(
-        num_classes=60,
+    model = PointNet2FaceRecognition(
+        num_classes=123,
         feature_transform=False,  # Assuming feature transform was used in training
         embedding_size=embedding_size
     ).to(device)
@@ -495,9 +499,10 @@ def main():
     
     # Evaluation parameters
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
-    parser.add_argument('--num_points', type=int, default=1024, help='Number of points to sample')
+    parser.add_argument('--num_points', type=int, default=4096, help='Number of points to sample')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of dataloader workers')
-    
+    parser.add_argument('--device', type=str, default="cpu", help='Number of dataloader workers')
+
     args = parser.parse_args()
     
     # Evaluate model using embeddings

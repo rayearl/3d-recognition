@@ -3,12 +3,16 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial import Delaunay
 from matplotlib import cm
+import os
 
 def read_ply(filename):
     vertices = []
     colors = []
     triangles = []
-    
+    if not os.path.exists(filename):
+        print("PLY not exist")
+        return None, None, None
+
     with open(filename, 'r') as f:
         lines = f.readlines()
         

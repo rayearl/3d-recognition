@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 # Import our modules
 from dataset.face_dataset import get_dataloaders
 from models.pointnet import PointNetFaceRecognition
+from models.pointnet2 import PointNet2FaceRecognition
 
 class ArcMarginProduct(nn.Module):
     """
@@ -106,12 +107,19 @@ def train(args):
     
     # Create model
     print("Creating model...")
-    model = PointNetFaceRecognition(
+    # model = PointNetFaceRecognition(
+    #     num_classes=num_classes, 
+    #     feature_transform=args.feature_transform,
+    #     embedding_size=args.embedding_size
+    # ).to(device)
+
+    model = PointNet2FaceRecognition(
         num_classes=num_classes, 
         feature_transform=args.feature_transform,
         embedding_size=args.embedding_size
     ).to(device)
-    
+
+
     # Create ArcFace metric
     metric_fc = ArcMarginProduct(
         in_features=args.embedding_size,
@@ -123,7 +131,7 @@ def train(args):
     
     # Optimizer
     if args.use_adam:
-        optimizer = optim.Adam(
+        optimizer = optim.AdamW(
             list(model.parameters()) + list(metric_fc.parameters()),
             lr=args.lr,
             betas=(0.9, 0.999),
@@ -137,6 +145,53 @@ def train(args):
             weight_decay=args.weight_decay
         )
     
+    # Load saved model checkpoint
+    if args.pretrained:
+        print(f"Loading checkpoint from {args.pretrained}...")
+        checkpoint = torch.load(args.pretrained, map_location=device)
+        
+        # Load model state dict with shape compatibility check
+        model_dict = model.state_dict()
+        pretrained_dict = checkpoint['model_state_dict']
+        # Filter out layers with incompatible shapes
+        compatible_dict = {k: v for k, v in pretrained_dict.items() 
+                        if k in model_dict and v.shape == model_dict[k].shape}
+        
+        # Check how many layers were loaded
+        print(f"Loaded {len(compatible_dict)}/{len(model_dict)} layers for model")
+        
+        # Load compatible layers
+        model_dict.update(compatible_dict)
+        model.load_state_dict(model_dict)
+        
+        # Similar approach for metric_fc
+        try:
+            metric_dict = metric_fc.state_dict()
+            pretrained_metric_dict = checkpoint['metric_fc_state_dict']
+            compatible_metric_dict = {k: v for k, v in pretrained_metric_dict.items()
+                                    if k in metric_dict and v.shape == metric_dict[k].shape}
+            
+            print(f"Loaded {len(compatible_metric_dict)}/{len(metric_dict)} layers for metric_fc")
+            metric_dict.update(compatible_metric_dict)
+            metric_fc.load_state_dict(metric_dict)
+        except Exception as e:
+            print(f"Could not load metric_fc: {e}")
+        
+        # Only load optimizer state if resuming training
+        try:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1
+            print(f"Resuming from epoch {start_epoch}")
+        except Exception as e:
+            print(f"Could not load optimizer state: {e}")
+            start_epoch = 0
+        
+        # Print performance metrics if available
+        if 'loss' in checkpoint and 'accuracy' in checkpoint:
+            print(f"Loaded checkpoint with loss: {checkpoint['loss']:.4f}, accuracy: {checkpoint['accuracy']:.4f}")
+        else:
+            print("Performance metrics not found in checkpoint")
+        
     # Loss functions
     criterion = nn.CrossEntropyLoss()
     
@@ -159,7 +214,7 @@ def train(args):
         for batch_idx, data in enumerate(tqdm(train_loader, desc='Training')):
             points = data['points'].to(device)
             target = data['label'].to(device)
-            
+            # print(points.shape)
             optimizer.zero_grad()
             
             # Forward pass through PointNet to get embeddings
@@ -292,7 +347,7 @@ def main():
     
     # Data parameters
     parser.add_argument('--data_dir', type=str, required=True, help='Data directory')
-    parser.add_argument('--num_points', type=int, default=1024, help='Number of points to sample')
+    parser.add_argument('--num_points', type=int, default=4096, help='Number of points to sample')
     
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
@@ -302,6 +357,8 @@ def main():
     parser.add_argument('--use_adam', action='store_true', help='Use Adam optimizer (default: SGD)')
     parser.add_argument('--no_cuda', action='store_true', help='Disable CUDA')
     parser.add_argument('--no_mps', action='store_true', help='Disable MPS')
+    parser.add_argument('--pretrained', type=str, default=None, help='pretrained model')
+    parser.add_argument('--resume', action='store_true', help='Resume training')
 
     parser.add_argument('--feature_transform', action='store_true', help='Use feature transform')
     parser.add_argument('--embedding_size', type=int, default=512, help='Embedding size')
